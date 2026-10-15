@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&D Inventory Manager - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dndred: { 600: '#7f1d1d', 700: '#991b1b', 800: '#7f1d1d', 900: '#450a0a' },
+                        dnddark: { 800: '#1e1e24', 900: '#121216', 950: '#0a0a0c' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAKITOB2KfQjeWdM-eKU1H36OmbRCufqPY",
+            authDomain: "testeded-20788.firebaseapp.com",
+            projectId: "testeded-20788",
+            storageBucket: "testeded-20788.firebasestorage.app",
+            messagingSenderId: "612661245699",
+            appId: "1:612661245699:web:2cb860ba1bc64f61699b36",
+            measurementId: "G-1G3BYEB1L8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.handleAuth = async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const isRegister = document.getElementById('is-register').checked;
+            const errorDiv = document.getElementById('auth-error');
+            errorDiv.classList.add('hidden');
+
+            try {
+                let userCred;
+                if (isRegister) {
+                    userCred = await createUserWithEmailAndPassword(auth, email, password);
+                    // Cria o documento inicial do utilizador como 'jogador' por defeito
+                    await setDoc(doc(db, "usuarios", userCred.user.uid), { email: email, papel: 'jogador' });
+                } else {
+                    userCred = await signInWithEmailAndPassword(auth, email, password);
+                }
+
+                // Verifica o papel do utilizador para redirecionar para a página correta
+                const userSnap = await getDoc(doc(db, "usuarios", userCred.user.uid));
+                if (userSnap.exists()) {
+                    const papel = userSnap.data().papel;
+                    if (papel === 'admin' || papel === 'mestre') {
+                        window.location.href = 'mestre.html';
+                    } else {
+                        window.location.href = 'jogador.html';
+                    }
+                } else {
+                    window.location.href = 'jogador.html';
+                }
+            } catch (error) {
+                errorDiv.innerText = error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+    </script>
+</head>
+<body class="bg-dnddark-950 text-gray-100 font-sans min-h-screen flex items-center justify-center p-4">
+    <div class="bg-dnddark-900 border border-dndred-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-red-500 mb-6">D&D Inventory Manager</h1>
+        <div id="auth-error" class="bg-red-900/50 border border-red-700 text-red-200 p-3 rounded mb-4 hidden text-sm"></div>
+        <form onsubmit="window.handleAuth(event)" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">E-mail</label>
+                <input type="email" id="auth-email" required class="w-full bg-dnddark-950 border border-gray-700 rounded p-2 focus:border-red-600 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Senha</label>
+                <input type="password" id="auth-password" required class="w-full bg-dnddark-950 border border-gray-700 rounded p-2 focus:border-red-600 focus:outline-none">
+            </div>
+            <div class="flex items-center justify-between text-sm">
+                <label class="flex items-center"><input type="checkbox" id="is-register" class="mr-2"> Criar nova conta</label>
+            </div>
+            <button type="submit" class="w-full bg-dndred-700 hover:bg-dndred-800 text-white font-bold py-2 rounded transition">Entrar / Registar</button>
+        </form>
+    </div>
+</body>
+</html>

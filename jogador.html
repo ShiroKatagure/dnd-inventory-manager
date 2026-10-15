@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Jogador - D&D Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dndred: { 600: '#7f1d1d', 700: '#991b1b', 800: '#7f1d1d', 900: '#450a0a' },
+                        dnddark: { 800: '#1e1e24', 900: '#121216', 950: '#0a0a0c' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAKITOB2KfQjeWdM-eKU1H36OmbRCufqPY",
+            authDomain: "testeded-20788.firebaseapp.com",
+            projectId: "testeded-20788",
+            storageBucket: "testeded-20788.firebasestorage.app",
+            messagingSenderId: "612661245699",
+            appId: "1:612661245699:web:2cb860ba1bc64f61699b36",
+            measurementId: "G-1G3BYEB1L8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUserId = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+            } else {
+                currentUserId = user.uid;
+                loadPersonagens();
+            }
+        });
+
+        window.logout = function() {
+            signOut(auth).then(() => { window.location.href = 'index.html'; });
+        }
+
+        async function loadPersonagens() {
+            const container = document.getElementById('personagens-list');
+            container.innerHTML = '<p class="text-gray-400">A carregar personagens...</p>';
+
+            const charSnap = await getDocs(query(collection(db, "personagens"), where("jogadorId", "==", currentUserId)));
+            let charsHTML = '';
+            
+            for(let docSnap of charSnap.docs) {
+                const p = docSnap.data();
+                charsHTML += `
+                    <div class="bg-dnddark-900 p-6 rounded-lg border border-gray-800 mb-4">
+                        <h4 class="text-xl font-bold text-red-400">${p.nomePersonagem} (${p.classe})</h4>
+                        <p class="text-sm text-gray-400 mb-4">Ouro: ${p.ouro || 0} | Prata: ${p.prata || 0} | Cobre: ${p.cobre || 0}</p>
+                        <h5 class="font-semibold mb-2">Inventário</h5>
+                        <div id="inv-${docSnap.id}" class="space-y-1 mb-4 text-sm text-gray-300">A carregar itens...</div>
+                        <div class="flex gap-2">
+                            <input type="text" id="item-nome-${docSnap.id}" placeholder="Nome do Item" class="bg-dnddark-950 border border-gray-700 rounded p-1.5 text-sm flex-1 focus:outline-none">
+                            <input type="number" id="item-qtd-${docSnap.id}" placeholder="Qtd" value="1" class="w-16 bg-dnddark-950 border border-gray-700 rounded p-1.5 text-sm focus:outline-none">
+                            <button onclick="window.adicionarItem('${docSnap.id}')" class="bg-green-700 hover:bg-green-800 px-3 py-1.5 rounded text-sm font-bold">Adicionar</button>
+                        </div>
+                    </div>`;
+            }
+
+            container.innerHTML = charsHTML || '<p class="text-gray-400">Ainda não tem personagens vinculados. Peça ao Mestre para associar o seu e-mail a um personagem.</p>';
+
+            // Carrega os itens de cada personagem
+            charSnap.forEach(async (docSnap) => {
+                const itensSnap = await getDocs(collection(db, "personagens", docSnap.id, "itens"));
+                let itensHTML = '<ul class="list-disc list-inside">';
+                if(itensSnap.empty) itensHTML = '<p class="text-gray-500">Inventário vazio.</p>';
+                itensSnap.forEach(itemDoc => {
+                    const i = itemDoc.data();
+                    itensHTML += `<li>${i.nome} (Qtd: ${i.quantidade})</li>`;
+                });
+                if(!itensSnap.empty) itensHTML += '</ul>';
+                const el = document.getElementById(`inv-${docSnap.id}`);
+                if(el) el.innerHTML = itensHTML;
+            });
+        }
+
+        window.adicionarItem = async function(personagemId) {
+            const nome = document.getElementById(`item-nome-${personagemId}`).value;
+            const quantidade = parseInt(document.getElementById(`item-qtd-${personagemId}`).value) || 1;
+            if(!nome) return;
+            await addDoc(collection(db, "personagens", personagemId, "itens"), { nome, quantidade });
+            loadPersonagens();
+        }
+    </script>
+</head>
+<body class="bg-dnddark-950 text-gray-100 font-sans min-h-screen flex flex-col">
+    <header class="bg-dnddark-900 border-b border-gray-800 p-4 flex justify-between items-center">
+        <h2 class="text-xl font-bold text-red-500">🎒 Painel do Jogador</h2>
+        <button onclick="window.logout()" class="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded transition">Sair</button>
+    </header>
+    <main class="flex-1 p-6 max-w-4xl w-full mx-auto" id="personagens-list">
+    </main>
+</body>
+</html>

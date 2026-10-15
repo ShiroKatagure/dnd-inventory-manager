@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Mestre - D&D Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dndred: { 600: '#7f1d1d', 700: '#991b1b', 800: '#7f1d1d', 900: '#450a0a' },
+                        dnddark: { 800: '#1e1e24', 900: '#121216', 950: '#0a0a0c' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAKITOB2KfQjeWdM-eKU1H36OmbRCufqPY",
+            authDomain: "testeded-20788.firebaseapp.com",
+            projectId: "testeded-20788",
+            storageBucket: "testeded-20788.firebasestorage.app",
+            messagingSenderId: "612661245699",
+            appId: "1:612661245699:web:2cb860ba1bc64f61699b36",
+            measurementId: "G-1G3BYEB1L8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUserId = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+            } else {
+                currentUserId = user.uid;
+                const userSnap = await getDoc(doc(db, "usuarios", user.uid));
+                if (userSnap.exists() && userSnap.data().papel === 'jogador') {
+                    window.location.href = 'jogador.html';
+                }
+                loadCampanhas();
+            }
+        });
+
+        window.logout = function() {
+            signOut(auth).then(() => { window.location.href = 'index.html'; });
+        }
+
+        async function loadCampanhas() {
+            const container = document.getElementById('campanhas-list');
+            container.innerHTML = '<p class="text-gray-400">A carregar campanhas...</p>';
+            
+            const campSnap = await getDocs(query(collection(db, "campanhas"), where("mestreId", "==", currentUserId)));
+            let html = '';
+            campSnap.forEach(docSnap => {
+                const c = docSnap.data();
+                html += `<div class="bg-dnddark-900 p-4 rounded border border-gray-800 mb-2 flex justify-between items-center">
+                    <span class="font-bold text-red-400">${c.nome}</span>
+                </div>`;
+            });
+            container.innerHTML = html || '<p class="text-gray-400">Nenhuma campanha cadastrada.</p>';
+        }
+
+        window.criarCampanha = async function() {
+            const nome = document.getElementById('campanha-nome').value;
+            if(!nome) return;
+            await addDoc(collection(db, "campanhas"), { nome: nome, mestreId: currentUserId });
+            document.getElementById('campanha-nome').value = '';
+            loadCampanhas();
+        }
+    </script>
+</head>
+<body class="bg-dnddark-950 text-gray-100 font-sans min-h-screen flex flex-col">
+    <header class="bg-dnddark-900 border-b border-gray-800 p-4 flex justify-between items-center">
+        <h2 class="text-xl font-bold text-red-500">🎲 Painel do Mestre</h2>
+        <button onclick="window.logout()" class="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded transition">Sair</button>
+    </header>
+    <main class="flex-1 p-6 max-w-4xl w-full mx-auto">
+        <div class="bg-dnddark-900 p-6 rounded-lg border border-gray-800 mb-6">
+            <h4 class="text-lg font-semibold mb-3">Criar Nova Campanha</h4>
+            <div class="flex gap-4">
+                <input type="text" id="campanha-nome" placeholder="Nome da Campanha (ex: A Queda de Cidadela)" class="flex-1 bg-dnddark-950 border border-gray-700 rounded p-2 focus:border-red-600 focus:outline-none">
+                <button onclick="window.criarCampanha()" class="bg-dndred-700 hover:bg-dndred-800 px-4 py-2 rounded font-bold">Criar</button>
+            </div>
+        </div>
+        <h4 class="text-xl font-semibold mb-3">As Suas Campanhas</h4>
+        <div id="campanhas-list"></div>
+    </main>
+</body>
+</html>
